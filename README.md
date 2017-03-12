@@ -20,8 +20,9 @@ and I claim nothing out of their changes and submissions.
 
 __IMPORTANT__: Do NOT add the sample or the synthesized data to this repository or any clones.
 The data is the property of the Clue company (BioWink GmbH), and I believe we do not have
-the permission to publish it publicly. It is safe to copy the data under a "data" folder here,
+the permission to publish it publicly. It is safe to copy the data under a "data" folder in a locally cloned repo,
 since it is included in the `.gitignore` file and won't automatically be added to the repo.
+- Some gitignore documentation: https://help.github.com/articles/ignoring-files/ 
 
 ## Data Description
 Here comes some general info about the data.
