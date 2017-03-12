@@ -1,8 +1,10 @@
 # clue-hackathon
 Clue-WATTx hackathon is my contribution to the hackathon.
 
-Website: http://cluehackathon.wattx.io/
-Original example submission repository: https://github.com/WATTx/cluehackathon
+- Website: http://cluehackathon.wattx.io/
+- Original example submission repository: https://github.com/WATTx/cluehackathon
+
+The submission and starting point of train scripts are copied from the above repository.
 
 ## Ground Rules
 My idea is to collaborate towards a better result at the end of the hackathon.
