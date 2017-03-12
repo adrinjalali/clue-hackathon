@@ -24,6 +24,16 @@ the permission to publish it publicly. It is safe to copy the data under a "data
 since it is included in the `.gitignore` file and won't automatically be added to the repo.
 - Some gitignore documentation: https://help.github.com/articles/ignoring-files/ 
 
+## Installation
+You can run the code using a python virtual environment (http://docs.python-guide.org/en/latest/dev/virtualenvs/).
+
+'''
+virtualenv -p python3 venv
+source venv/bin/activate
+pip install -r requirements.txt
+./run.sh
+'''
+
 ## Data Description
 Here comes some general info about the data.
 
