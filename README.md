@@ -18,6 +18,10 @@ everyone with any accepted pull-request will have an equal share of the prize.
 Ideally, everyone basing any submission on this repo would do the same, but they don't have to,
 and I claim nothing out of their changes and submissions.
 
+__IMPORTANT__: Do NOT add the sample or the synthesized data to this repository or any clones.
+The data is the property of the Clue company (BioWink GmbH), and I believe we do not have
+the permission to publish it publicly.
+
 ## Data Description
 Here comes some general info about the data.
 
