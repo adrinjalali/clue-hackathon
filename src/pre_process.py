@@ -51,6 +51,12 @@ def process_level1(tracking, cycles):
     These values can be usefull later to map symptoms of 
     different cycles together. It might also help mapping
     different cycles of different people together.
+    
+    The very helpful thing to map different cycles together (of the same id) 
+    is to order them with respect to the ovulation day; the ovulation day becomes 
+    then the origin time for predictions. Any symptom can appear some day before or after
+    the ovulation day (see comment).
+    
     """
     val = tracking[['user_id', 'cycle_id', 'day_in_cycle', 'date', 'symptom']]\
           .pivot_table(index= ['user_id', 'cycle_id', 'day_in_cycle', 'date'],
