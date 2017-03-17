@@ -14,20 +14,19 @@ sample = pd.read_csv("data/data_sample.csv") # the first sample, one single file
 
 # List users
 udser_id = list(pd.unique(sample.user_id))
-# density is a kind of pre processing the data
+# density is a kind of pre processing data
 density = pd.DataFrame()
 
 # For each user
 for u_id in udser_id:
     single_user = sample[sample.user_id == u_id]
     # Day of ovulation (assuming that the luteal phase lasts 14 days)
-    # luteal lenght uniformly distributed around 14 days ±1
-    # (We can try gaussian distribution)
-    ov_day = single_user.cycle_length - (14 + random.randrange(-1, 1, 1))
-    # Ov_day_mean becomes the day 0 for each user
-    ov_day_mean = int(np.mean(ov_day))
-    cycle_mean = int(np.mean(single_user.cycle_length))  
-    cycle_std = int(np.std(single_user.cycle_length))    
+    # luteal lenght uniformly distributed around 14 days ±2
+    # ov_day becomes the day 0 for each cycle of each user
+    ov_day = single_user.cycle_length - (14 + random.randrange(-2, 2, 1))
+    #ov_day_mean = int(np.mean(ov_day))
+    #cycle_mean = int(np.mean(single_user.cycle_length))  
+    #cycle_std = int(np.std(single_user.cycle_length))    
 
 # select "energy" in id1
     user_energy = single_user[single_user.category == 'energy']
@@ -49,12 +48,12 @@ for u_id in udser_id:
             c = color[i-1]
             points = user_energy.loc[(user_energy['day_in_cycle'] == day) &
                                      (user_energy['symptom'] == key)]
-            diary = pd.DataFrame({'user_id': u_id, 'day_to_from_ov':day-ov_day_mean, 'symptom': key,
+            diary = pd.DataFrame({'user_id': u_id, 'day_to_from_ov':day-ov_day, 'symptom': key,
                                   'occurrence': points.shape[0]})
             density = density.append(diary)
             # %%
             # print(day,key,len(points))
-            ax1.scatter(day-ov_day_mean, points.shape[0], s, c, label=key)
+            ax1.scatter(day-ov_day, points.shape[0], s, c, label=key)
             ax1.scatter(0, 0, color='r', s=100, marker='^', alpha=.4, label='ovulation')
             ax1.set_title('User ID:' + str(u_id))
             props1 = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
