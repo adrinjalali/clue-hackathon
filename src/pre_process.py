@@ -22,21 +22,21 @@ def save_binary(data_dir,
     df_cycles = pd.read_csv(join(data_dir, cycles))
     df_users = pd.read_csv(join(data_dir, users))
     df_tracking = pd.read_csv(join(data_dir, tracking))
-    os.makedirs('binary', exist_ok=True)
-    df_active_days.to_pickle('binary/active_days.pkl')
-    df_cycles.to_pickle('binary/cycles.pkl')
-    df_users.to_pickle('binary/users.pkl')
-    df_tracking.to_pickle('binary/tracking.pkl')
+    os.makedirs('../binary', exist_ok=True)
+    df_active_days.to_pickle('../binary/active_days.pkl')
+    df_cycles.to_pickle('../binary/cycles.pkl')
+    df_users.to_pickle('../binary/users.pkl')
+    df_tracking.to_pickle('../binary/tracking.pkl')
 
 
 def load_binary():
     """
     loads the binary data.
     """
-    df_active_days = pd.read_pickle('../data/binary/active_days.pkl')
-    df_cycles = pd.read_pickle('../data/binary/cycles.pkl')
-    df_users = pd.read_pickle('../data/binary/users.pkl')
-    df_tracking = pd.read_pickle('../data/binary/tracking.pkl')
+    df_active_days = pd.read_pickle('../binary/active_days.pkl')
+    df_cycles = pd.read_pickle('../binary/cycles.pkl')
+    df_users = pd.read_pickle('../binary/users.pkl')
+    df_tracking = pd.read_pickle('../binary/tracking.pkl')
 
     return {'users': df_users,
             'cycles': df_cycles,
