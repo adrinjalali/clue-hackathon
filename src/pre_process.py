@@ -136,9 +136,9 @@ def process_level2(data):
     
     val = sqldf("""select t1.*,
                    c1.cycle_length, c1.expected_cycle_length, c1.period_length,
-                   (t1.day_in_cycle / c1.cycle_length) * 29 as proportionate,
+                   (t1.day_in_cycle / c1.cycle_length) * 10 as proportionate,
                    c1.cycle_length - t1.day_in_cycle as inverse,
-                   ((c1.cycle_length - t1.day_in_cycle) / c1.cycle_length) * 29 as inverse_proportionate,
+                   ((c1.cycle_length - t1.day_in_cycle) / c1.cycle_length) * 10 as inverse_proportionate,
                    t1.day_in_cycle - c1.period_length as period_removed
                    from val as t1 join cycles as c1 on t1.user_id = c1.user_id
                    and t1.cycle_id = c1.cycle_id""",
@@ -153,7 +153,7 @@ def process_level2(data):
                 'high_energy', 'low_energy', 'cramps', 'headache', 'ovulation_pain',
                 'tender_breasts', 'acne_skin', 'good_skin', 'oily_skin', 'dry_skin']
     cols = list(Y.columns.values)
-    cols = [x for x in cols where x[3] in symptoms]
+    cols = [x for x in cols if x[3] in symptoms]
     Y = Y[cols]
     
     v1 = sqldf("""select val.* from val
