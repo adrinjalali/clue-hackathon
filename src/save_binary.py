@@ -1,3 +1,4 @@
+import sys
 from os.path import join
 import os
 import pandas as pd
@@ -25,4 +26,5 @@ def save_binary(data_dir,
 
 
 if __name__ == '__main__':
-    save_binary('../data')
+    data_fname = sys.argv[-1]
+    save_binary(data_fname)

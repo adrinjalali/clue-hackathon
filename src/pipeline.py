@@ -1,12 +1,13 @@
 import sys
 import pandas as pd
 
-from src.pre_process import process_level2, load_binary
+from pre_process import process_level2, load_binary
 
 
-def run(data_fname):
-
-    data = load_binary(data_fname)
+def run():
+    data = load_binary()
+    print(data['users'].head())
+    exit()
 
     # (Opt: user clustering)
 
@@ -33,6 +34,4 @@ def run(data_fname):
 
 
 if __name__ == '__main__':
-    print('run training')
-    data_fname = sys.argv[-1]
-    run(data_fname)
+    run()
