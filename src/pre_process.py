@@ -17,11 +17,13 @@ def load_binary(binary_dir = 'binary'):
     df_cycles = pd.read_pickle(os.path.join(binary_dir, 'cycles.pkl'))
     df_users = pd.read_pickle(os.path.join(binary_dir, 'users.pkl'))
     df_tracking = pd.read_pickle(os.path.join(binary_dir, 'tracking.pkl'))
+    df_labels = pd.read_pickle(os.path.join(binary_dir, 'labels.pkl'))
 
     return {'users': df_users,
             'cycles': df_cycles,
             'active_days': df_active_days,
-            'tracking': df_tracking}
+            'tracking': df_tracking,
+            'labels': df_labels}
 
 
 def process_level1(tracking, cycles):
@@ -111,8 +113,27 @@ def process_explode(tracking, cycles):
 
     return full_tracking_pivot
 
+def convert_to_X(val):
+    day_in_cycle = pd.DataFrame(np.array(range(29)), columns = ['day'])
+
+    val.proportionate = val.proportionate.astype(int)
+    val.inverse_proportionate = val.inverse_proportionate.astype(int)
+
+    v2 = sqldf("""select t1.user_id, t1.category, t1.symptom, t1.inverse_proportionate as X, count(*) as cnt
+                  from tbl as t1
+                  group by user_id, category, symptom, inverse_proportionate
+                  order by inverse_proportionate""",
+               {'tbl': val})
+
+    v3 = v2.pivot_table(index= ['user_id'],
+                        columns = ['X', 'category', 'symptom'], aggfunc=lambda x: sum(x)).\
+                        reset_index()
+    return v3
 
 def process_level2(data):
+    min_cycle = sqldf("""select user_id, min(cycle_id) as min_c from tracking 
+                         group by user_id""", data)
+    
     val = sqldf("""select t1.*,
                    c1.cycle_length, c1.expected_cycle_length, c1.period_length,
                    (t1.day_in_cycle / c1.cycle_length) * 29 as proportionate,
@@ -122,21 +143,32 @@ def process_level2(data):
                    from val as t1 join cycles as c1 on t1.user_id = c1.user_id
                    and t1.cycle_id = c1.cycle_id""",
                 {'val': data['tracking'], 'cycles': data['cycles']})
-    day_in_cycle = pandas.DataFrame(np.array(range(29)), columns = ['day'])
 
-    val.proportionate = val.proportionate.astype(int)
-    val.inverse_proportionate = val.inverse_proportionate.astype(int)
+    v1 = sqldf("""select val.* from val
+                  join min_cycle on val.user_id == min_cycle.user_id
+                  where val.cycle_id == min_cycle.min_c""",
+               {'val': val, 'min_cycle': min_cycle})
+    Y = convert_to_X(v1)
+    symptoms = ['happy', 'pms', 'sad', 'sensitive_emotion', 'energized', 'exhausted',
+                'high_energy', 'low_energy', 'cramps', 'headache', 'ovulation_pain',
+                'tender_breasts', 'acne_skin', 'good_skin', 'oily_skin', 'dry_skin']
+    cols = list(Y.columns.values)
+    cols = [x for x in cols where x[3] in symptoms]
+    Y = Y[cols]
+    
+    v1 = sqldf("""select val.* from val
+                  join min_cycle on val.user_id == min_cycle.user_id
+                  where val.cycle_id != min_cycle.min_c""",
+               {'val': val, 'min_cycle': min_cycle})
+    X = convert_to_X(v1)
+    
+    v1 = sqldf("""select val.* from val
+                  join min_cycle on val.user_id == min_cycle.user_id
+                  where val.cycle_id != min_cycle.min_c""",
+               {'val': val, 'min_cycle': min_cycle})
+    X_all = convert_to_X(v1)
 
-    v2 = sqldf("""select t1.user_id, t1.category, t1.symptom, t1.inverse as X, count(*) as cnt
-                  from tbl as t1
-                  group by user_id, category, symptom, inverse
-                  order by inverse""",
-               {'tbl': val})
-
-    v3 = v2.pivot_table(index= ['user_id'],
-                        columns = ['X', 'category', 'symptom'], aggfunc=lambda x: sum(x)).\
-                        reset_index()
-    return v3
-
-
+    return {'X': X,
+            'Y': Y,
+            'X_all': X_all}
     
