@@ -1,3 +1,6 @@
 #!/bin/bash
 echo "starting"
-python3 src/train_predict.py ./data
+
+python3 src/logistics.py ./data
+
+python3 src/pipeline.py ./data
