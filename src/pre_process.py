@@ -113,60 +113,70 @@ def process_explode(tracking, cycles):
 
     return full_tracking_pivot
 
-def convert_to_X(val):
-    day_in_cycle = pd.DataFrame(np.array(range(29)), columns = ['day'])
+def convert_to_X(val, users):
+    a = val.groupby(('user_id', 'category', 'symptom', 'inverse_proportionate')).count().reset_index()
 
-    val.proportionate = val.proportionate.astype(int)
-    val.inverse_proportionate = val.inverse_proportionate.astype(int)
+    a = a[['user_id', 'symptom', 'inverse_proportionate', 'cycle_id']]
+    a.columns = ['user_id', 'symptom', 'inverse_proportionate', 'cnt']
 
-    v2 = sqldf("""select t1.user_id, t1.category, t1.symptom, t1.inverse_proportionate as X, count(*) as cnt
-                  from tbl as t1
-                  group by user_id, category, symptom, inverse_proportionate
-                  order by inverse_proportionate""",
-               {'tbl': val})
+    indexed_df = a.set_index(['user_id', 'inverse_proportionate', 'symptom'])
+    for i in range(2):
+        indexed_df = indexed_df.unstack(level=-1)
+    indexed_df = indexed_df.reset_index()
 
-    v3 = v2.pivot_table(index= ['user_id'],
-                        columns = ['X', 'category', 'symptom'], aggfunc=lambda x: sum(x)).\
-                        reset_index()
-    return v3
+    indexed_df.rename(columns={('user_id', '', ''): 'user_id'}, inplace=True)
 
-def process_level2(data):
-    min_cycle = sqldf("""select user_id, min(cycle_id) as min_c from tracking 
-                         group by user_id""", data)
-    
-    val = sqldf("""select t1.*,
-                   c1.cycle_length, c1.expected_cycle_length, c1.period_length,
-                   (t1.day_in_cycle / c1.cycle_length) * 29 as proportionate,
-                   c1.cycle_length - t1.day_in_cycle as inverse,
-                   ((c1.cycle_length - t1.day_in_cycle) / c1.cycle_length) * 29 as inverse_proportionate,
-                   t1.day_in_cycle - c1.period_length as period_removed
-                   from val as t1 join cycles as c1 on t1.user_id = c1.user_id
-                   and t1.cycle_id = c1.cycle_id""",
-                {'val': data['tracking'], 'cycles': data['cycles']})
+    # Rename user_id column
+    cols = list(indexed_df.columns)
+    cols[0] = 'user_id'
+    indexed_df.columns = cols
 
-    v1 = sqldf("""select val.* from val
-                  join min_cycle on val.user_id == min_cycle.user_id
-                  where val.cycle_id == min_cycle.min_c""",
-               {'val': val, 'min_cycle': min_cycle})
-    Y = convert_to_X(v1)
+    indexed_df = pd.merge(pd.DataFrame(users['user_id']), indexed_df, how='left', on='user_id')
+
+    return indexed_df
+
+def process_level2(data: dict):
+    min_cycle = pd.DataFrame(data['tracking'].groupby('user_id').cycle_id.min()).reset_index()
+    min_cycle.columns = ['user_id', 'min_c']
+
+    tracking = data['tracking']
+    cycles = data['cycles']
+    users = data['users']
+
+    df = pd.merge(tracking, cycles, on=['user_id', 'cycle_id'])
+
+    CYCLE_LEN = 29
+
+    df['proportionate'] = df.day_in_cycle / df.cycle_length
+    df['proportionate'] = df['proportionate'].astype(int)
+
+    df['inverse'] = df.cycle_length - df.day_in_cycle
+    df['inverse'] = df['inverse'].astype(int)
+
+    df['inverse_proportionate'] = ((df.cycle_length - df.day_in_cycle) / df.cycle_length) * CYCLE_LEN
+    df['inverse_proportionate'] = df['inverse_proportionate'].astype(int)
+
+    v1 = pd.merge(df, min_cycle, on='user_id')
+    vY = v1[v1.cycle_id==v1.min_c]
+
+    Y = convert_to_X(vY, users)
     symptoms = ['happy', 'pms', 'sad', 'sensitive_emotion', 'energized', 'exhausted',
                 'high_energy', 'low_energy', 'cramps', 'headache', 'ovulation_pain',
                 'tender_breasts', 'acne_skin', 'good_skin', 'oily_skin', 'dry_skin']
+
+    # Select only Y symptoms
     cols = list(Y.columns.values)
-    cols = [x for x in cols where x[3] in symptoms]
+    cols = [x for x in cols if x[1] in symptoms]
     Y = Y[cols]
-    
-    v1 = sqldf("""select val.* from val
-                  join min_cycle on val.user_id == min_cycle.user_id
-                  where val.cycle_id != min_cycle.min_c""",
-               {'val': val, 'min_cycle': min_cycle})
-    X = convert_to_X(v1)
-    
-    v1 = sqldf("""select val.* from val
-                  join min_cycle on val.user_id == min_cycle.user_id
-                  where val.cycle_id != min_cycle.min_c""",
-               {'val': val, 'min_cycle': min_cycle})
-    X_all = convert_to_X(v1)
+
+    # X
+    vX = v1[v1.cycle_id != v1.min_c]
+    X = convert_to_X(vX, users)
+    X_all = convert_to_X(v1, users)
+
+
+    assert X.shape[0] == Y.shape[0], "shape of X and Y does not agree"
+    assert X.shape[0] == X_all.shape[0], "shape of X_all and X does not agree"
 
     return {'X': X,
             'Y': Y,
