@@ -17,7 +17,7 @@ import sys
 
 input = raw_input  # remove in python3
 
-COMPETITION_NAME = 'clue-demo'
+DEFAULT_COMPETITION_NAME = 'clue'
 BUILD_IMAGE_NAME = 'statice.tmp'
 EXPECTED_HEADERS = 'user_id,day_in_cycle,symptom,probability'
 REGISTRY_ADDR = 'statice.wattx.io:5000'
@@ -41,7 +41,8 @@ def run_checks_and_submit():
                 print(err, file=sys.stderr)
             sys.exit(1)
     logging.info('Successfully submitted.')
-    logging.info('Check http://statice.wattx.io/submissions for the status of your submission.')
+    logging.info('Check http://statice.wattx.io/submissions '
+                 'for the status of your submission.')
 
 
 def statice_check(fn):
@@ -57,6 +58,7 @@ def run_command(args):
     """Run the command plus arguments in list ignoring STDOUT."""
     # For python3:
     # return subprocess.call(args, stdout=subprocess.DEVNULL, timeout=60) == 0
+    print ('args:', ' '.join(args))
     with open(os.devnull, 'w') as fnull:
         return subprocess.call(args, stdout=fnull) == 0
 
@@ -140,7 +142,7 @@ def test_run_submission():
         contents = f.read().splitlines()
         if not len(contents) > 1:
             return (
-                'The results.txt your file produces does not have any actual' +
+                'The result.txt your file produces does not have any actual' +
                 ' results. See test/result.txt for what was produced' +
                 ' using sample data.'
             )
@@ -148,7 +150,7 @@ def test_run_submission():
         header = contents[0]
         if not set(EXPECTED_HEADERS.split(',')) == set(header.split(',')):
             return (
-                'The results.txt your file produces does not have a correct' +
+                'The result.txt your file produces does not have a correct' +
                 ' CSV header. Got `%s` instead of expected `%s`.' %
                 (header.split(','), EXPECTED_HEADERS)
             )
@@ -169,14 +171,31 @@ def push_submission():
 
 
 if __name__ == '__main__':
-    logging.info('Starting checks and submission...')
-    competition_username = (
-        os.environ.get('STATICE_USERNAME') or input('competition username:'))
-    competition_password = (
-        os.environ.get('STATICE_PASSWORD') or
-        getpass.getpass('competition password:'))
-    competition_repo = '%s/%s/%s' % (
-        REGISTRY_ADDR, COMPETITION_NAME,
-        competition_username.replace('@', '_'))
+    import argparse
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-c', '--competition', default=DEFAULT_COMPETITION_NAME,
+        help='tag for this submission')
+    parser.add_argument(
+        '-u', '--statice_username',
+        help='login username/email for statice.wattx.io help')
+    parser.add_argument(
+        '-p', '--statice_password',
+        help='login password for statice.wattx.io help')
+    parser.add_argument(
+        '-t', '--tag', default='latest',
+        help='tag for this submission')
+
+    args = parser.parse_args()
+
+    competition_username = (args.statice_username or
+                            input('competition username:'))
+    competition_password = (args.statice_password or
+                            getpass.getpass('competition password:'))
+    competition_repo = '%s/%s/%s:%s' % (
+        REGISTRY_ADDR, args.competition,
+        competition_username.replace('@', '_'), args.tag)
+
+    logging.info('Starting checks and submission...')
     run_checks_and_submit()

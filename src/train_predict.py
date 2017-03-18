@@ -2,9 +2,6 @@ import sys
 import pandas as pd
 from os.path import join
 
-def load(data_dir):
-    
-
 def run(data_fname):
 
     # load data
@@ -27,7 +24,7 @@ def run(data_fname):
     results = user_symptoms_rel[['user_id', 'day_in_cycle', 'symptom', 'probability']]
 
     # save results in the correct format.
-    results.to_csv('./result.txt', index=None)
+    results.to_csv('../result.txt', index=None)
 
 
 if __name__ == '__main__':
