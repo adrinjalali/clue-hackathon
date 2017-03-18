@@ -12,7 +12,9 @@ def run():
     # (Opt: user clustering)
 
     # Extract features
-    processed_data = process_level2()
+    user_feat_matrix = process_level2()  # X
+
+
 
     # (Opt: Select features)
     pass
