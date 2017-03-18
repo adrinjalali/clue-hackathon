@@ -1,7 +1,6 @@
 from os.path import join
 import os
 import pandas as pd
-from pandasql import sqldf
 from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
 from pandas import DataFrame

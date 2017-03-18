@@ -26,12 +26,13 @@ def dump_cycle(f, user, ps, symptom, cl):
     window_size, poly_order = 5, 3
     yy_sg = savgol_filter(itp(xx), window_size, poly_order)
     for i in range(int(cl)):
-        f.write("%s,%s,%d,%g\n"%(user, symptom, i, yy_sg[i]))
+        lp = np.max([.1,np.min([yy_sg[int(i)], .9])])
+        f.write("%s,%s,%d,%g\n"%(user, symptom, i, lp))
 
-def dump(dump_dir, symptom, model, X_all, c_length):
-    with open(join(dump_dir, "result.txt"), "w") as f:
+def dump(symptom, model, X_all, c_length, users):
+    with open("result.txt", "a") as f:
         predictions = model.predict(X_all)
-        for u, p in zip(X_all.user_id.values, predictions):
+        for u, p in zip(users, predictions):
             dump_cycle(f, u, p, symptom, c_length[u])
         
 
@@ -41,4 +42,4 @@ if __name__ == "__main__":
     cycles0 = pd.read_csv(join(data_dir, 'cycles0.csv'))
     c_length = {k:v for k,v in zip(cycles0.user_id.values, cycles0.expected_cycle_length)}
     X_all = cycles0.copy()
-    dump("/tmp", "fluid", model, X_all, c_length)
+    dump("fluid", model, X_all, c_length)
