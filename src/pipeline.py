@@ -1,10 +1,14 @@
+import math
 import numpy as np
 import sys
 import sklearn
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LinearRegression, Lasso
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MaxAbsScaler
+from sklearn.decomposition import PCA
 from sklearn.feature_selection import VarianceThreshold
+from sklearn.model_selection import GridSearchCV
+from sklearn.svm import SVR
 import pandas as pd
 from os.path import join
 from src.dump_results import dump
@@ -56,3 +60,31 @@ def run():
     
 if __name__ == '__main__':
     run()
+
+    """
+    symptoms=['happy']
+    for symptom in symptoms:
+        print(symptom)
+        s_Y = Y[[x for x in cols if x[1] == symptom]]
+        print("Lasso")
+        pipeline = Pipeline([
+            ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
+            ('standard_scale', MaxAbsScaler()),
+            #('pca', PCA()),
+            ('estimator', SVR(kernel='rbf')),
+        ])
+
+        param_grid = {'estimator__gamma': [math.pow(2, x) for x in range(-5, 2)],
+                      'estimator__C': [math.pow(2, x) for x in range(-5, 2)]}
+                      #'pca__n_components': [5]}
+        model = GridSearchCV(pipeline,
+                             param_grid,
+                             verbose=10,
+                             cv=5,
+                             n_jobs=1
+                 )
+
+        model.fit(X, s_Y.values)
+
+        model.best_score_
+    """
