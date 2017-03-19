@@ -112,7 +112,7 @@ def process_explode(tracking, cycles):
 
     return full_tracking_pivot
 
-def convert_to_X(val, users):
+def convert_to_X(val, users, active_days):
     a = val.groupby(('user_id', 'category', 'symptom', 'inverse_proportionate')).count().reset_index()
 
     a = a[['user_id', 'symptom', 'inverse_proportionate', 'cycle_id']]
@@ -132,6 +132,11 @@ def convert_to_X(val, users):
 
     indexed_df = pd.merge(pd.DataFrame(users['user_id']), indexed_df, how='left', on='user_id')
 
+    ad = active_days.groupby(('user_id', 'cycle_id')).count().reset_index().\
+         groupby('user_id').median().reset_index()[['user_id', 'date']]
+    ad.columns = ['user_id', 'active_days']
+    indexed_df = pd.merge(indexed_df, ad, on='user_id')
+    
     return indexed_df
 
 def process_level2(data: dict):
@@ -141,6 +146,7 @@ def process_level2(data: dict):
     tracking = data['tracking']
     cycles = data['cycles']
     users = data['users']
+    active_days = data['active_days']
 
     df = pd.merge(tracking, cycles, on=['user_id', 'cycle_id'])
 
@@ -158,7 +164,7 @@ def process_level2(data: dict):
     v1 = pd.merge(df, min_cycle, on='user_id')
     vY = v1[v1.cycle_id==v1.min_c]
 
-    Y = convert_to_X(vY, users)
+    Y = convert_to_X(vY, users, active_days)
     symptoms = ['happy', 'pms', 'sad', 'sensitive_emotion', 'energized', 'exhausted',
                 'high_energy', 'low_energy', 'cramps', 'headache', 'ovulation_pain',
                 'tender_breasts', 'acne_skin', 'good_skin', 'oily_skin', 'dry_skin']
@@ -170,8 +176,8 @@ def process_level2(data: dict):
 
     # X
     vX = v1[v1.cycle_id != v1.min_c]
-    X = convert_to_X(vX, users)
-    X_all = convert_to_X(v1, users)
+    X = convert_to_X(vX, users, active_days)
+    X_all = convert_to_X(v1, users, active_days)
 
 
     assert X.shape[0] == Y.shape[0], "shape of X and Y does not agree"

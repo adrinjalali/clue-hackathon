@@ -12,7 +12,7 @@ from sklearn.svm import SVR
 import pandas as pd
 from os.path import join
 from src.dump_results import dump
-
+from sklearn.tree import DecisionTreeRegressor
 from src.pre_process import process_level2, load_binary
 
 
@@ -43,11 +43,10 @@ def run():
     for symptom in symptoms:
         print(symptom)
         s_Y = Y[[x for x in cols if x[1] == symptom]]
-        print("Lasso")
         pipeline = Pipeline([
             ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
             ('standard_scale', StandardScaler()),
-            ('estimator', Lasso()),
+            ('estimator', DecisionTreeRegressor(max_depth=5)),
         ])
 
         pipeline.fit(X, s_Y.values)
