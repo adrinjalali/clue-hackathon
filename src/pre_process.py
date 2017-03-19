@@ -112,13 +112,16 @@ def process_explode(tracking, cycles):
 
     return full_tracking_pivot
 
+
 def convert_to_X(val, users, active_days):
-    a = val.groupby(('user_id', 'category', 'symptom', 'inverse_proportionate')).count().reset_index()
+    TIME_PARAM = 'proportionate'  #'inverse_proportionate'
+    print(TIME_PARAM)
+    a = val.groupby(('user_id', 'category', 'symptom', TIME_PARAM)).count().reset_index()
 
-    a = a[['user_id', 'symptom', 'inverse_proportionate', 'cycle_id']]
-    a.columns = ['user_id', 'symptom', 'inverse_proportionate', 'cnt']
+    a = a[['user_id', 'symptom', TIME_PARAM, 'cycle_id']]
+    a.columns = ['user_id', 'symptom', TIME_PARAM, 'cnt']
 
-    indexed_df = a.set_index(['user_id', 'inverse_proportionate', 'symptom'])
+    indexed_df = a.set_index(['user_id', TIME_PARAM, 'symptom'])
     for i in range(2):
         indexed_df = indexed_df.unstack(level=-1)
     indexed_df = indexed_df.reset_index()
@@ -152,7 +155,7 @@ def process_level2(data: dict):
 
     CYCLE_LEN = 29
 
-    df['proportionate'] = df.day_in_cycle / df.cycle_length
+    df['proportionate'] = df.day_in_cycle / df.cycle_length * CYCLE_LEN
     df['proportionate'] = df['proportionate'].astype(int)
 
     df['inverse'] = df.cycle_length - df.day_in_cycle
