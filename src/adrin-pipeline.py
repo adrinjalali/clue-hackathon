@@ -49,13 +49,17 @@ def run():
             ('estimator', DecisionTreeRegressor(max_depth=5)),
         ])
 
-        pipeline.fit(X, s_Y.values)
+        param_grid = {'estimator__max_depth': [3, 5, 7],
+                      'estimator__max_features': ['auto', 'sqrt', 'log2']}
+        model = GridSearchCV(pipeline, param_grid = param_grid, n_jobs = 4,
+                             verbose=2)
+        model.fit(X, s_Y.values)
 
         print("dumping...")
         data_dir = 'data'
         cycles0 = pd.read_csv(join(data_dir, 'cycles0.csv'))
         c_length = {k:v for k,v in zip(cycles0.user_id.values, cycles0.expected_cycle_length)}
-        dump(symptom, pipeline, X_all, c_length, data['users'].user_id)
+        dump(symptom, model, X_all, c_length, data['users'].user_id)
     
 if __name__ == '__main__':
     run()
