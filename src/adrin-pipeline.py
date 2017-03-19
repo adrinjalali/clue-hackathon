@@ -14,7 +14,7 @@ from os.path import join
 from src.dump_results import dump
 from sklearn.tree import DecisionTreeRegressor
 from src.pre_process import process_level2, load_binary
-
+from sklearn.linear_model import ElasticNet
 
 def run():
     data = load_binary()
@@ -46,13 +46,10 @@ def run():
         pipeline = Pipeline([
             ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
             ('standard_scale', StandardScaler()),
-            ('estimator', DecisionTreeRegressor(max_depth=5)),
+            ('estimator', ElasticNet()),
         ])
 
-        param_grid = {'estimator__max_depth': [3, 5, 7],
-                      'estimator__max_features': ['auto', 'sqrt', 'log2']}
-        model = GridSearchCV(pipeline, param_grid = param_grid, n_jobs = 4,
-                             verbose=2)
+        model = pipeline
         model.fit(X, s_Y.values)
 
         print("dumping...")
@@ -90,4 +87,37 @@ if __name__ == '__main__':
         model.fit(X, s_Y.values)
 
         model.best_score_
+
+    DTAD:
+    for symptom in symptoms:
+        print(symptom)
+        s_Y = Y[[x for x in cols if x[1] == symptom]]
+        pipeline = Pipeline([
+            ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
+            ('standard_scale', StandardScaler()),
+            ('estimator', DecisionTreeRegressor(max_depth=5)),
+        ])
+
+        param_grid = {'estimator__max_depth': [3, 5, 7],
+                      'estimator__max_features': ['auto', 'sqrt', 'log2']}
+        model = GridSearchCV(pipeline, param_grid = param_grid, n_jobs = 1,
+                             verbose=2)
+        model.fit(X, s_Y.values)
+    
+    EN:
+    for symptom in symptoms:
+        print(symptom)
+        s_Y = Y[[x for x in cols if x[1] == symptom]]
+        pipeline = Pipeline([
+            ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
+            ('standard_scale', StandardScaler()),
+            ('estimator', ElasticNet()),
+        ])
+
+        param_grid = {'estimator__alpha': [.1, .3, .5, .7, .8],
+                      'estimator__l1_ratio': [.2, .5, .8]}
+        model = GridSearchCV(pipeline, param_grid = param_grid, n_jobs = 4,
+                             verbose=2)
+        model.fit(X, s_Y.values)
+
     """
