@@ -2,7 +2,7 @@ import numpy as np
 import sys
 import sklearn
 from sklearn.pipeline import Pipeline
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
 import pandas as pd
@@ -39,10 +39,11 @@ def run():
     for symptom in symptoms:
         print(symptom)
         s_Y = Y[[x for x in cols if x[1] == symptom]]
+        print("Lasso")
         pipeline = Pipeline([
             ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
             ('standard_scale', StandardScaler()),
-            ('estimator', LinearRegression()),
+            ('estimator', Lasso()),
         ])
 
         pipeline.fit(X, s_Y.values)
