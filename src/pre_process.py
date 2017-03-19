@@ -112,16 +112,13 @@ def process_explode(tracking, cycles):
 
     return full_tracking_pivot
 
+def convert_to_X(val, users, active_days, day_transform):
+    a = val.groupby(('user_id', 'category', 'symptom', day_transform)).count().reset_index()
 
-def convert_to_X(val, users, active_days):
-    TIME_PARAM = 'proportionate'  #'inverse_proportionate'
-    print(TIME_PARAM)
-    a = val.groupby(('user_id', 'category', 'symptom', TIME_PARAM)).count().reset_index()
+    a = a[['user_id', 'symptom', day_transform, 'cycle_id']]
+    a.columns = ['user_id', 'symptom', day_transform, 'cnt']
 
-    a = a[['user_id', 'symptom', TIME_PARAM, 'cycle_id']]
-    a.columns = ['user_id', 'symptom', TIME_PARAM, 'cnt']
-
-    indexed_df = a.set_index(['user_id', TIME_PARAM, 'symptom'])
+    indexed_df = a.set_index(['user_id', day_transform, 'symptom'])
     for i in range(2):
         indexed_df = indexed_df.unstack(level=-1)
     indexed_df = indexed_df.reset_index()
@@ -138,7 +135,7 @@ def convert_to_X(val, users, active_days):
     ad = active_days.groupby(('user_id', 'cycle_id')).count().reset_index().\
          groupby('user_id').median().reset_index()[['user_id', 'date']]
     ad.columns = ['user_id', 'active_days']
-    indexed_df = pd.merge(indexed_df, ad, on='user_id')
+    indexed_df = pd.merge(indexed_df, ad, on='user_id').reset_index()
     
     return indexed_df
 
@@ -167,7 +164,7 @@ def process_level2(data: dict):
     v1 = pd.merge(df, min_cycle, on='user_id')
     vY = v1[v1.cycle_id==v1.min_c]
 
-    Y = convert_to_X(vY, users, active_days)
+    Y = convert_to_X(vY, users, active_days, 'inverse_proportionate')
     symptoms = ['happy', 'pms', 'sad', 'sensitive_emotion', 'energized', 'exhausted',
                 'high_energy', 'low_energy', 'cramps', 'headache', 'ovulation_pain',
                 'tender_breasts', 'acne_skin', 'good_skin', 'oily_skin', 'dry_skin']
@@ -178,9 +175,23 @@ def process_level2(data: dict):
     Y = Y[cols]
 
     # X
+    """
     vX = v1[v1.cycle_id != v1.min_c]
-    X = convert_to_X(vX, users, active_days)
-    X_all = convert_to_X(v1, users, active_days)
+    X = convert_to_X(vX, users, active_days, 'inverse_proportionate')
+    X_all = convert_to_X(v1, users, active_days, 'inverse_proportionate')
+    """
+
+    vX = v1[v1.cycle_id != v1.min_c]
+    Xip = convert_to_X(vX, users, active_days, 'inverse_proportionate')
+    Xip = Xip.set_index('user_id')
+    Xp = convert_to_X(vX, users, active_days, 'proportionate')
+    Xp = Xp.set_index('user_id')
+    X = pd.concat([Xip, Xp], axis=1).reset_index()
+    X_all_ip = convert_to_X(v1, users, active_days, 'inverse_proportionate')
+    X_all_ip = X_all_ip.set_index('user_id')
+    X_all_p = convert_to_X(v1, users, active_days, 'proportionate')
+    X_all_p = X_all_p.set_index('user_id')
+    X_all = pd.concat([X_all_ip, X_all_p], axis=1).reset_index()
 
 
     assert X.shape[0] == Y.shape[0], "shape of X and Y does not agree"
