@@ -33,7 +33,7 @@ def run():
     symptoms = ['happy', 'pms', 'sad', 'sensitive_emotion', 'energized', 'exhausted',
                 'high_energy', 'low_energy', 'cramps', 'headache', 'ovulation_pain',
                 'tender_breasts', 'acne_skin', 'good_skin', 'oily_skin', 'dry_skin']
-    with open("results.txt", 'w') as f:
+    with open("result.txt", 'w') as f:
         f.write("user_id,day_in_cycle,symptom,probability\n")
     
     for symptom in symptoms:
