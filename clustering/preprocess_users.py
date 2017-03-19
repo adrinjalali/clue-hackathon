@@ -8,40 +8,32 @@ import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
-from __future__ import division
 import pandas as pd
 import numpy as np
 import csv
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
-import itertools
+from clustering.users_features import df_users_adj,df_users
 
-# preparing countries to continent mapping
-reader = csv.reader(open('countries_mapping.csv', 'r'))
-d = {}
-for row in reader:
-    d[row[1]] = row[0]
+def getDummies(dfz, col, minCtn = 10):
+    '''
+    function which create dummy variables 
+    for the different categories
+    '''    
+    df2 = dfz.copy()
+    df2['_id'] = 1
+    df_aux = df2.groupby(col).aggregate({'_id':'count'}).reset_index() 
+    df_aux = df_aux[df_aux._id>=minCtn]
+    topColTypes = list(set(df_aux[col].values))
+    dfz[col] = dfz.apply(lambda r: r[col] if r[col] in topColTypes else 'OTHER' , axis=1)
+    dummies = pd.get_dummies(dfz[col], prefix=col) # +'_')
+    
+    return dummies, topColTypes
 
-# preparing data
-df_users = pd.read_csv("users.csv") \
-    .apply(lambda x: x.fillna(x.median()) if np.issubdtype(x.dtype, np.number) else x, axis=0)
-df_users['continent'] = df_users.country.map(d).fillna("Oceania")
-df_users.continent = df_users.continent.apply(lambda x: 'Asia' if x == 'South Korea' else x)
-# df_u['phase'] = ((df_u.birthyear - df_u.birthyear.min())/(df_u.birthyear.max() - df_u.birthyear.min()))
-# df_u['phase'] = df_u.phase.apply(lambda x: 0 if x > 0.8 else 2 if x < 0.2 else 1)
-# df_u['adolescence'] = (((df_u.birthyear - df_u.birthyear.min())/(df_u.birthyear.max() - df_u.birthyear.min())) > 0.8) * 1
-# df_u['menopause'] = (((df_u.birthyear - df_u.birthyear.min())/(df_u.birthyear.max() - df_u.birthyear.min())) < 0.2) * 1
-df_users['age'] = 2017 - df_users.birthyear
-df_users['age_bracket'] = df_users.age.apply(lambda x: '<18' if x < 18 else '18-24' if x > 24 else '>24')
-df_users['first_havers'] = (2017 - df_users.birthyear).apply(lambda x: 1 if x < 15 else 0)
-df_users['menopause'] = (((df_users.birthyear - df_users.birthyear.min())/(df_users.birthyear.max() - df_users.birthyear.min())) < 0.2) * 1
-df_users['bmi'] = df_users.weight / ((df_users.height/100)**2)
-
-# preparing the dataset to cluster
-df_users_adj = pd.concat([df_users, pd.get_dummies(df_users.continent), pd.get_dummies(df_users.age_bracket)], axis=1) \
-                            .drop(['Oceania', 'country', 'platform', 'continent', \
-                                   'birthyear', 'weight', 'height','age','age_bracket'], axis = 1)
+train = pd.concat([df_users], axis=1) \
+                            .drop([ 'country', 'platform','first_havers','menopause', 'continent', \
+                                   'birthyear', 'weight', 'height','age_bracket'], axis = 1)
 
                     
 df_active  = pd.read_csv("active_days.csv")
@@ -79,8 +71,6 @@ def menstrual_activity(user_df):
 
     return cycle_activity
 
-
-df_cycles
 df_active = df_active.join(df_cycles.set_index(['user_id','cycle_id']), on = ['user_id','cycle_id'], how = 'right', lsuffix='_x')
 
 def create_info_users(df_active):
@@ -109,24 +99,47 @@ info_users = create_info_users(df_active)
 
 info_df = pd.DataFrame(info_users)
 
-info_df['last_month_activity'].plot(kind='density')
-info_df['activity'].plot(kind='density')
-info_df['relative_activity'].plot(kind='density')
-info_df['menstru_activity'].plot(kind='density')
-
-
-
-df_a       = pd.read_csv("active_days.csv")
-df_a['day_in_cycle'].plot(kind='density')
+users_data = pd.merge(train, info_df,
+              left_on=['user_id'],
+              right_on=['user_id'],
+              how='inner')
+users_data
 
 
 
 
+
+'''
+import seaborn as sns
+corr = info_df.corr()
+sns.regplot(info_df['menstru_activity'],info_df['last_month_activity'])
+sns.heatmap(corr, 
+            xticklabels = corr.columns.values,
+            yticklabels = corr.columns.values)
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA as sklearnPCA
+
+array_users = users_data.values 
+X     = array_users[:, 1:17] 
+X_std = StandardScaler().fit_transform(X)
+
+sklearn_pca = sklearnPCA(n_components = 3)
+Y_sklearn = sklearn_pca.fit_transform(X_std)
+eigenValues = sklearn_pca.explained_variance_ratio_
+loadings = sklearn_pca.components_
+
+mu = np.mean(X, axis=0)
+
+nComp = 2
+Xhat = np.dot(sklearn_pca.transform(X)[:,:nComp], sklearn_pca.components_[:nComp,:])
+Xhat += mu
+Xhat=pd.DataFrame(Xhat)
 
 #X = PCA on previous data
 info_df['last_month_activity']
 info_df['menstru_activity']
-X = pd.DataFrame(info_df['menstru_activity'],info_df['activity'])
+X = Xhat.ix[:, '0':'1']
 k = 3 # Define the number of clusters in which we want to partion the data
 kmeans = KMeans(n_clusters = k) # Run the algorithm kmeans
 kmeans.fit(X);
@@ -140,17 +153,10 @@ for i in range(len(X)):
 plt.scatter(centroids[:,0],centroids[:,1], marker = "x", s = 300, linewidths = 5) # Plot centroids
 plt.show()
 
+
+
+
 info_df['labels'] = labels
-
-
-users_data = pd.merge(df_users_adj, info_df,
-              left_on=['user_id'],
-              right_on=['user_id'],
-              how='inner')
-users_data.to_csv('users0.csv')
-
-
-
 
 labels = df_a['day_in_cycle']
 
@@ -166,41 +172,4 @@ plt.hist(df_a['day_in_cycle'][labels==0]/len(df_a['day_in_cycle'][labels==0]))
 plt.figure()
 df_a['day_in_cycle'][labels==2].plot(kind = 'density')
 plt.hist(df_a['day_in_cycle'][labels==2])
-
-
-
-import seaborn as sns
-corr = info_df.corr()
-sns.regplot(info_df['menstru_activity'],info_df['last_month_activity'])
-sns.heatmap(corr, 
-            xticklabels = corr.columns.values,
-            yticklabels = corr.columns.values)
-
-
-def getDummies(dfz, col, minCtn = 10):
-    '''
-    function which create dummy variables 
-    for the different categories
-    '''    
-    df2 = dfz.copy()
-    df2['_id'] = 1
-    df_aux = df2.groupby(col).aggregate({'_id':'count'}).reset_index() 
-    df_aux = df_aux[df_aux._id>=minCtn]
-    topColTypes = list(set(df_aux[col].values))
-    dfz[col] = dfz.apply(lambda r: r[col] if r[col] in topColTypes else 'OTHER' , axis=1)
-    dummies = pd.get_dummies(dfz[col], prefix=col) # +'_')
-    
-    return dummies, topColTypes
-    
-
-from sklearn.preprocessing import StandardScaler
-
-array_users = users_data.values 
-X     = array_users[:, 1:17] 
-X_std = StandardScaler().fit_transform(X)
-
-from sklearn.decomposition import PCA as sklearnPCA
-sklearn_pca = sklearnPCA(n_components = 3)
-Y_sklearn = sklearn_pca.fit_transform(X_std)
-eigenValues = sklearn_pca.explained_variance_ratio_
-loadings = sklearn_pca.components_
+'''
