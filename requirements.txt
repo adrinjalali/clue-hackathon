@@ -37,3 +37,4 @@ testpath
 tornado
 traitlets
 wcwidth
+tqdm
