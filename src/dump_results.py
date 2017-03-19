@@ -27,7 +27,7 @@ def dump_cycle(f, user, ps, symptom, cl):
     yy_sg = savgol_filter(itp(xx), window_size, poly_order)
     for i in range(int(cl)):
         lp = np.max([.001,np.min([yy_sg[int(i)], .99])])
-        f.write("%s,%s,%d,%g\n"%(user, symptom, i, lp))
+        f.write("%s,%d,%s,%g\n"%(user, i, symptom, lp))
 
 def dump(symptom, model, X_all, c_length, users):
     with open("result.txt", "a") as f:
