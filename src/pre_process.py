@@ -6,6 +6,7 @@ from scipy.signal import savgol_filter
 from pandas import DataFrame
 from tqdm import tqdm
 import numpy as np
+import csv
 
 
 def load_binary(binary_dir = 'binary'):
@@ -112,6 +113,34 @@ def process_explode(tracking, cycles):
 
     return full_tracking_pivot
 
+def preprocess_users(users):
+    # preparing countries to continent mapping
+    reader = csv.reader(open('../data/countries_mapping.csv', 'r'))
+    d = {}
+    for row in reader:
+        d[row[1]] = row[0]
+
+    # preparing data
+    df_users = users.apply(lambda x: x.fillna(x.median()) if np.issubdtype(x.dtype, np.number) else x, axis=0)
+    df_users['continent'] = df_users.country.map(d).fillna("Oceania")
+    df_users.continent = df_users.continent.apply(lambda x: 'Asia' if x == 'South Korea' else x)
+    # df_u['phase'] = ((df_u.birthyear - df_u.birthyear.min())/(df_u.birthyear.max() - df_u.birthyear.min()))
+    # df_u['phase'] = df_u.phase.apply(lambda x: 0 if x > 0.8 else 2 if x < 0.2 else 1)
+    # df_u['adolescence'] = (((df_u.birthyear - df_u.birthyear.min())/(df_u.birthyear.max() - df_u.birthyear.min())) > 0.8) * 1
+    # df_u['menopause'] = (((df_u.birthyear - df_u.birthyear.min())/(df_u.birthyear.max() - df_u.birthyear.min())) < 0.2) * 1
+    df_users['age'] = 2017 - df_users.birthyear
+    df_users['age_bracket'] = df_users.age.apply(lambda x: '<18' if x < 18 else '18-24' if x > 24 else '>24')
+    df_users['first_havers'] = (2017 - df_users.birthyear).apply(lambda x: 1 if x < 15 else 0)
+    df_users['menopause'] = (((df_users.birthyear - df_users.birthyear.min())/(df_users.birthyear.max() - df_users.birthyear.min())) < 0.2) * 1
+    df_users['bmi'] = df_users.weight / ((df_users.height/100)**2)
+
+    # preparing the dataset to cluster
+    df_users_adj = pd.concat([df_users, pd.get_dummies(df_users.continent), pd.get_dummies(df_users.age_bracket)], axis=1) \
+                    .drop(['Oceania', 'country', 'platform', 'continent', \
+                            'birthyear', 'weight', 'height','age','age_bracket'], axis = 1)
+
+    return df_users_adj
+
 def convert_to_X(val, users, active_days, day_transform):
     a = val.groupby(('user_id', 'category', 'symptom', day_transform)).count().reset_index()
 
@@ -133,9 +162,13 @@ def convert_to_X(val, users, active_days, day_transform):
     indexed_df = pd.merge(pd.DataFrame(users['user_id']), indexed_df, how='left', on='user_id')
 
     ad = active_days.groupby(('user_id', 'cycle_id')).count().reset_index().\
-         groupby('user_id').median().reset_index()[['user_id', 'date']]
+            groupby('user_id').median().reset_index()[['user_id', 'date']]
     ad.columns = ['user_id', 'active_days']
     indexed_df = pd.merge(indexed_df, ad, on='user_id').reset_index()
+
+    # Gianluca
+    df_users_adj = preprocess_users(users)
+    indexed_df = pd.merge(df_users_adj, indexed_df, how='left', on='user_id')
     
     return indexed_df
 
