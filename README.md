@@ -30,6 +30,8 @@ The data includes the following sections:
  - Cycles: includes information about cycles, such as starting date, length, and cycle id
  - Tracking: this is the largest part of the dataset, including one row per (user id, cycle id, day in cycle, category, symptom).
 
+## Data Preparation
+The 
 ## Methods
 Ideas, from pre-processing to the end.
 
