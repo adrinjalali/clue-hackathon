@@ -1,47 +1,29 @@
 from os.path import join
 import os
 import pandas as pd
-from pandasql import sqldf
 from scipy.interpolate import interp1d
 from scipy.signal import savgol_filter
 from pandas import DataFrame
 from tqdm import tqdm
 import numpy as np
-
-def save_binary(data_dir,
-                active_days = 'active_days.csv',
-                cycles = 'cycles.csv',
-                tracking = 'tracking.csv',
-                users = 'users.csv'):
-    """
-    loads the data from the csv files
-    then pickles them.
-    """
-
-    df_active_days = pd.read_csv(join(data_dir, active_days))
-    df_cycles = pd.read_csv(join(data_dir, cycles))
-    df_users = pd.read_csv(join(data_dir, users))
-    df_tracking = pd.read_csv(join(data_dir, tracking))
-    os.makedirs('../binary', exist_ok=True)
-    df_active_days.to_pickle('../binary/active_days.pkl')
-    df_cycles.to_pickle('../binary/cycles.pkl')
-    df_users.to_pickle('../binary/users.pkl')
-    df_tracking.to_pickle('../binary/tracking.pkl')
+import csv
 
 
-def load_binary():
+def load_binary(binary_dir = 'binary'):
     """
     loads the binary data.
     """
-    df_active_days = pd.read_pickle('../binary/active_days.pkl')
-    df_cycles = pd.read_pickle('../binary/cycles.pkl')
-    df_users = pd.read_pickle('../binary/users.pkl')
-    df_tracking = pd.read_pickle('../binary/tracking.pkl')
+    df_active_days = pd.read_pickle(os.path.join(binary_dir, 'active_days.pkl'))
+    df_cycles = pd.read_pickle(os.path.join(binary_dir, 'cycles.pkl'))
+    df_users = pd.read_pickle(os.path.join(binary_dir, 'users.pkl'))
+    df_tracking = pd.read_pickle(os.path.join(binary_dir, 'tracking.pkl'))
+    df_labels = pd.read_pickle(os.path.join(binary_dir, 'labels.pkl'))
 
     return {'users': df_users,
             'cycles': df_cycles,
             'active_days': df_active_days,
-            'tracking': df_tracking}
+            'tracking': df_tracking,
+            'labels': df_labels}
 
 
 def process_level1(tracking, cycles):
@@ -131,37 +113,124 @@ def process_explode(tracking, cycles):
 
     return full_tracking_pivot
 
+def preprocess_users(users):
+    # preparing countries to continent mapping
+    reader = csv.reader(open('../data/countries_mapping.csv', 'r'))
+    d = {}
+    for row in reader:
+        d[row[1]] = row[0]
 
-def process_level2(l1_tracking, active_days):
+    # preparing data
+    df_users = users.apply(lambda x: x.fillna(x.median()) if np.issubdtype(x.dtype, np.number) else x, axis=0)
+    df_users['continent'] = df_users.country.map(d).fillna("Oceania")
+    df_users.continent = df_users.continent.apply(lambda x: 'Asia' if x == 'South Korea' else x)
+    # df_u['phase'] = ((df_u.birthyear - df_u.birthyear.min())/(df_u.birthyear.max() - df_u.birthyear.min()))
+    # df_u['phase'] = df_u.phase.apply(lambda x: 0 if x > 0.8 else 2 if x < 0.2 else 1)
+    # df_u['adolescence'] = (((df_u.birthyear - df_u.birthyear.min())/(df_u.birthyear.max() - df_u.birthyear.min())) > 0.8) * 1
+    # df_u['menopause'] = (((df_u.birthyear - df_u.birthyear.min())/(df_u.birthyear.max() - df_u.birthyear.min())) < 0.2) * 1
+    df_users['age'] = 2017 - df_users.birthyear
+    df_users['age_bracket'] = df_users.age.apply(lambda x: '<18' if x < 18 else '18-24' if x > 24 else '>24')
+    df_users['first_havers'] = (2017 - df_users.birthyear).apply(lambda x: 1 if x < 15 else 0)
+    df_users['menopause'] = (((df_users.birthyear - df_users.birthyear.min())/(df_users.birthyear.max() - df_users.birthyear.min())) < 0.2) * 1
+    df_users['bmi'] = df_users.weight / ((df_users.height/100)**2)
+
+    # preparing the dataset to cluster
+    df_users_adj = pd.concat([df_users, pd.get_dummies(df_users.continent), pd.get_dummies(df_users.age_bracket)], axis=1) \
+                    .drop(['Oceania', 'country', 'platform', 'continent', \
+                            'birthyear', 'weight', 'height','age','age_bracket'], axis = 1)
+
+    return df_users_adj
+
+def convert_to_X(val, users, active_days, day_transform):
+    a = val.groupby(('user_id', 'category', 'symptom', day_transform)).count().reset_index()
+
+    a = a[['user_id', 'symptom', day_transform, 'cycle_id']]
+    a.columns = ['user_id', 'symptom', day_transform, 'cnt']
+
+    indexed_df = a.set_index(['user_id', day_transform, 'symptom'])
+    for i in range(2):
+        indexed_df = indexed_df.unstack(level=-1)
+    indexed_df = indexed_df.reset_index()
+
+    indexed_df.rename(columns={('user_id', '', ''): 'user_id'}, inplace=True)
+
+    # Rename user_id column
+    cols = list(indexed_df.columns)
+    cols[0] = 'user_id'
+    indexed_df.columns = cols
+
+    indexed_df = pd.merge(pd.DataFrame(users['user_id']), indexed_df, how='left', on='user_id')
+
+    ad = active_days.groupby(('user_id', 'cycle_id')).count().reset_index().\
+            groupby('user_id').median().reset_index()[['user_id', 'date']]
+    ad.columns = ['user_id', 'active_days']
+    indexed_df = pd.merge(indexed_df, ad, on='user_id').reset_index()
+
+    # Gianluca
+    df_users_adj = preprocess_users(users)
+    indexed_df = pd.merge(df_users_adj, indexed_df, how='left', on='user_id')
+    
+    return indexed_df
+
+def process_level2(data: dict):
+    min_cycle = pd.DataFrame(data['tracking'].groupby('user_id').cycle_id.min()).reset_index()
+    min_cycle.columns = ['user_id', 'min_c']
+
+    tracking = data['tracking']
+    cycles = data['cycles']
+    users = data['users']
+    active_days = data['active_days']
+
+    df = pd.merge(tracking, cycles, on=['user_id', 'cycle_id'])
+
+    CYCLE_LEN = 29
+
+    df['proportionate'] = df.day_in_cycle / df.cycle_length * CYCLE_LEN
+    df['proportionate'] = df['proportionate'].astype(int)
+
+    df['inverse'] = df.cycle_length - df.day_in_cycle
+    df['inverse'] = df['inverse'].astype(int)
+
+    df['inverse_proportionate'] = ((df.cycle_length - df.day_in_cycle) / df.cycle_length) * CYCLE_LEN
+    df['inverse_proportionate'] = df['inverse_proportionate'].astype(int)
+
+    v1 = pd.merge(df, min_cycle, on='user_id')
+    vY = v1[v1.cycle_id==v1.min_c]
+
+    Y = convert_to_X(vY, users, active_days, 'inverse_proportionate')
+    symptoms = ['happy', 'pms', 'sad', 'sensitive_emotion', 'energized', 'exhausted',
+                'high_energy', 'low_energy', 'cramps', 'headache', 'ovulation_pain',
+                'tender_breasts', 'acne_skin', 'good_skin', 'oily_skin', 'dry_skin']
+
+    # Select only Y symptoms
+    cols = list(Y.columns.values)
+    cols = [x for x in cols if x[1] in symptoms]
+    Y = Y[cols]
+
+    # X
     """
-    WIP
+    vX = v1[v1.cycle_id != v1.min_c]
+    X = convert_to_X(vX, users, active_days, 'inverse_proportionate')
+    X_all = convert_to_X(v1, users, active_days, 'inverse_proportionate')
     """
-    pysqldf = lambda q: sqldf(q, globals())
 
-    data = load_binary()
-    users, cycles, active_days, tracking = data['users'], data['cycles'], data['active_days'], data['tracking']
-    l1_tracking = process_level1(tracking, cycles)
+    vX = v1[v1.cycle_id != v1.min_c]
+    Xip = convert_to_X(vX, users, active_days, 'inverse_proportionate')
+    Xip = Xip.set_index('user_id')
+    Xp = convert_to_X(vX, users, active_days, 'proportionate')
+    Xp = Xp.set_index('user_id')
+    X = pd.concat([Xip, Xp], axis=1).reset_index()
+    X_all_ip = convert_to_X(v1, users, active_days, 'inverse_proportionate')
+    X_all_ip = X_all_ip.set_index('user_id')
+    X_all_p = convert_to_X(v1, users, active_days, 'proportionate')
+    X_all_p = X_all_p.set_index('user_id')
+    X_all = pd.concat([X_all_ip, X_all_p], axis=1).reset_index()
 
 
-    for user in users.user_id:
-        a = l1_tracking[l1_tracking.user_id == user]
-        b = active_days[active_days.user_id == user]
-        if len(a) != len(b):
-            print(user)
-            break
+    assert X.shape[0] == Y.shape[0], "shape of X and Y does not agree"
+    assert X.shape[0] == X_all.shape[0], "shape of X_all and X does not agree"
 
-
-    symptom = 'unprotected_sex'
-    y = a[symptom].values
-    y[np.isnan(y)] = 0
-    x = np.array(list(range(len(a))))
-    xx = np.linspace(x.min(),x.max(), len(x))
-    itp = interp1d(x,y, kind='linear')
-    window_size, poly_order = 5, 3
-    yy_sg = savgol_filter(itp(xx), window_size, poly_order)
-    print(np.vstack((yy_sg, y)).transpose())
-
-    """
-    map things to [0,1], by connecting cycles to tracking,
-    group by day in cycle, take max or sum.
-    """
+    return {'X': X,
+            'Y': Y,
+            'X_all': X_all}
+    
