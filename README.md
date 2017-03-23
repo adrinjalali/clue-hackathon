@@ -72,8 +72,14 @@ We compared and submitted a few models in our evaluations. At the end, the best 
  - Support Vector Machines with an RBF kernel and grid search on the `gamma` parameter of the kernel and the `C` of the optimization problem (computation was too expensive and never finished in time)
 
 ## Potential Future Work
-- GP iterative learning
-- scikit-learn linear model partial learning
+One important question dealing with this type of data is weather to train one single model for all the users, or a single model per user. Arguably clustering the users and training a model per cluster can be considered a middle ground. We tried clustering the users beforehand to train a model for each cluster, but using the computed clusters is something we didn't have time to put in our pipeline. We decided against training a model per user for two reasons:
+- computationally intensive
+- not enough data per user
+
+An alternative approach is to train a general model for all the users, and then do further fitting for each given user. This uses the knowledge we have from the population, and then fits the model a bit further to the user. Some possible ways to do so are:
+- Train a Gaussian process on the whole data, then further train the GP (for only a few iterations if it's an iterative method) given only the data from the user. One important detail to consider is that GPs are usually prune to overfitting unless they are sparse, or the covariance function imposes sparsity, or a feature selection is done prior to the GP fit.
+- `scikit-learn` supports incremental fit for some models. The same strategy as explained above can be taken using these models. More information about `partial_fit` and the models can be found [here](http://scikit-learn.org/stable/modules/scaling_strategies.html)
+
 - modified pre-processing (avg instead of sum)
 - different pre-processing per symptom
 - standard scaler doesn't work for sparse data
