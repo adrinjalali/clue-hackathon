@@ -62,10 +62,14 @@ The model is in this case a `scikit-learn` pipeline:
 
     pipeline.fit(X, Y)
 
-`Y` being the output for only one symptom.
+`Y` being the output for only one symptom. The actual code is found in [pipeline.py](src/pipeline.py) file.
 
 ## Results
-What we get out of it.
+We compared and submitted a few models in our evaluations. At the end, the best performing model was a `LASSO` and a grid search on its `alpha` parameter. Other evaluated models include:
+ - Linear Regression
+ - Decision Trees with a grid search on its depth and max number of used input features
+ - Random Forests
+ - Support Vector Machines with an RBF kernel and grid search on the `gamma` parameter of the kernel and the `C` of the optimization problem (computation was too expensive and never finished in time)
 
 ## Potential Future Work
 - GP iterative learning
