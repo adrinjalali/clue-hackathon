@@ -32,6 +32,8 @@ The data includes the following sections:
 
 There are almost 80 symotoms, which are in groups of four, each group called a category. In this analysis category is completely ignored, since symptom names are unique.
 
+We approach the task as a regression problem, and not a classification problem. Then we take the predicted values as _probabilities_ and export them as output. One supporting argument is that the recorded symptoms are simply there when the symptom as passed a certain threshold, and the symptoms themselves behave in a continues way and are not discrete phenomena.
+
 ## Data Preparation
 The data is transformed such that there is one row per user at the end. The tracking data is converted into columns, each column name being a (symptom, day in cycle) tuple. To better map cycles and day in cycles to eachother, all sycles are scaled into a 29 day cycle, which is the median cycle length. This is done by this transformation:
 
@@ -47,7 +49,29 @@ Before creating the matrix, we exclude the last cycle of each user from the data
 The respective code for data preparation is done by `process_level2(.)` function in [pre_process.py](src/pre_process.py) file.
 
 ## Methods
-Ideas, from pre-processing to the end.
+Once the data is pre-processed and we have our `X` and `Y` matrices, we train a model for each symptom. This means the model takes the `X` matrix as input, and gives an output having dimensions `(n_users, 29)`.
+If the model doesn't support a vector as an output, we need to train 29 separate models per symptom, and due to the computational cost of doing so we avoid such models.
+
+The model is in this case a `scikit-learn` pipeline:
+
+    pipeline = Pipeline([
+        ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
+        ('standard_scale', StandardScaler()),
+        ('estimator', DecisionTreeRegressor(max_depth=5)),
+    ])
+
+    pipeline.fit(X, Y)
+
+`Y` being the output for only one symptom.
 
 ## Results
 What we get out of it.
+
+## Potential Future Work
+- GP iterative learning
+- scikit-learn linear model partial learning
+- modified pre-processing (avg instead of sum)
+- different pre-processing per symptom
+- standard scaler doesn't work for sparse data
+- user clusters
+- compare to all `0.01` or similar constant output performance
