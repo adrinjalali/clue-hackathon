@@ -22,7 +22,7 @@ def load_binary(binary_dir='binary'):
 
 def preprocess_users(users):
     # Preparing countries to continent mapping
-    reader = csv.reader(open('../data/countries_mapping.csv', 'r'))
+    reader = csv.reader(open('clustering/countries_mapping.csv', 'r'))
     d = {}
     for row in reader:
         d[row[1]] = row[0]
