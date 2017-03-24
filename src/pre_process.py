@@ -1,17 +1,11 @@
-from os.path import join
 import os
 import pandas as pd
-from scipy.interpolate import interp1d
-from scipy.signal import savgol_filter
-from pandas import DataFrame
-from tqdm import tqdm
 import numpy as np
 import csv
 
 
-def load_binary(binary_dir = 'binary'):
-    """
-    loads the binary data.
+def load_binary(binary_dir='binary'):
+    """Loads the binary data.
     """
     df_active_days = pd.read_pickle(os.path.join(binary_dir, 'active_days.pkl'))
     df_cycles = pd.read_pickle(os.path.join(binary_dir, 'cycles.pkl'))
@@ -25,14 +19,15 @@ def load_binary(binary_dir = 'binary'):
             'tracking': df_tracking,
             'labels': df_labels}
 
+
 def preprocess_users(users):
-    # preparing countries to continent mapping
+    # Preparing countries to continent mapping
     reader = csv.reader(open('../data/countries_mapping.csv', 'r'))
     d = {}
     for row in reader:
         d[row[1]] = row[0]
 
-    # preparing data
+    # Preparing data
     df_users = users.apply(lambda x: x.fillna(x.median()) if np.issubdtype(x.dtype, np.number) else x, axis=0)
     df_users['continent'] = df_users.country.map(d).fillna("Oceania")
     df_users.continent = df_users.continent.apply(lambda x: 'Asia' if x == 'South Korea' else x)
@@ -46,12 +41,13 @@ def preprocess_users(users):
     df_users['menopause'] = (((df_users.birthyear - df_users.birthyear.min())/(df_users.birthyear.max() - df_users.birthyear.min())) < 0.2) * 1
     df_users['bmi'] = df_users.weight / ((df_users.height/100)**2)
 
-    # preparing the dataset to cluster
+    # Preparing the dataset to cluster
     df_users_adj = pd.concat([df_users, pd.get_dummies(df_users.continent), pd.get_dummies(df_users.age_bracket)], axis=1) \
                     .drop(['Oceania', 'country', 'platform', 'continent', \
                             'birthyear', 'weight', 'height','age','age_bracket'], axis = 1)
 
     return df_users_adj
+
 
 def convert_to_X(val, users, active_days, day_transform):
     """
@@ -89,6 +85,7 @@ def convert_to_X(val, users, active_days, day_transform):
     
     return indexed_df
 
+
 def process_level2(data: dict):
     """
     This function takes the raw data read from csv files
@@ -118,7 +115,7 @@ def process_level2(data: dict):
     df['inverse_proportionate'] = df['inverse_proportionate'].astype(int)
 
     v1 = pd.merge(df, min_cycle, on='user_id')
-    vY = v1[v1.cycle_id==v1.min_c]
+    vY = v1[v1.cycle_id == v1.min_c]
 
     Y = convert_to_X(vY, users, active_days, 'inverse_proportionate')
     symptoms = ['happy', 'pms', 'sad', 'sensitive_emotion', 'energized', 'exhausted',
@@ -149,11 +146,9 @@ def process_level2(data: dict):
     X_all_p = X_all_p.set_index('user_id')
     X_all = pd.concat([X_all_ip, X_all_p], axis=1).reset_index()
 
-
     assert X.shape[0] == Y.shape[0], "shape of X and Y does not agree"
     assert X.shape[0] == X_all.shape[0], "shape of X_all and X does not agree"
 
     return {'X': X,
             'Y': Y,
             'X_all': X_all}
-    
