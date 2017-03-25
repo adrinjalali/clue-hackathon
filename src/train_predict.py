@@ -1,6 +1,6 @@
 import sys
 import pandas as pd
-from os.path import join
+
 
 def run(data_fname):
 

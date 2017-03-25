@@ -19,8 +19,6 @@ from src.pre_process import process_level2, load_binary
 def run():
     data = load_binary()
 
-    # (Opt: user clustering)
-
     # Extract features
     user_feat_matrix = process_level2(data)  # X
 
@@ -56,7 +54,8 @@ def run():
         cycles0 = pd.read_csv(join(data_dir, 'cycles0.csv'))
         c_length = {k:v for k,v in zip(cycles0.user_id.values, cycles0.expected_cycle_length)}
         dump(symptom, pipeline, X_all, c_length, data['users'].user_id)
-    
+
+
 if __name__ == '__main__':
     run()
 
