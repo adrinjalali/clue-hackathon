@@ -89,4 +89,5 @@ There are also a few tasks that we could do on the preprocessing side of the cod
 - At the moment we scale the whole cycle linearly into a 29 day cycle. Whilst it might make sense for some of the symptoms, other symptoms might show a different behavior. For instance, it might be better to keep the last 2 weeks of the cycle as it is, and scale the rest of it linearly into 15 days. There is some evidence that this is a better transformation for many symptoms. One idea is to transform all the symptoms using both explained approaches, and then for each symptom, test which transformation makes the population closer to each other. The transformation resulting in less variance among the population is probably a better fit.
 - The `StandardScaler` used in our code includes all the zeros in the estimated mean and variance before transformation, which in such a sparse data as we have in this task is wrong. As long as the prediction model does not assume having normally distributed input variables, this preprocessing step can be removed.
   - UPDATE: this did not improve the performance
-- compare to all `0.01` or similar constant output performance
+- compare a constant small output to other models
+  - UPDATE: this was implemented, but got failed and never got debugged (competition over).
