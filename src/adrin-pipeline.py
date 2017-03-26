@@ -69,7 +69,6 @@ if __name__ == '__main__':
         print("Lasso")
         pipeline = Pipeline([
             ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
-            ('standard_scale', MaxAbsScaler()),
             #('pca', PCA()),
             ('estimator', SVR(kernel='rbf')),
         ])
@@ -104,7 +103,7 @@ if __name__ == '__main__':
                              verbose=2)
         model.fit(X, s_Y.values)
     
-    EN:
+    ENGS:
     for symptom in symptoms:
         print(symptom)
         s_Y = Y[[x for x in cols if x[1] == symptom]]
@@ -117,6 +116,34 @@ if __name__ == '__main__':
         param_grid = {'estimator__alpha': [.1, .3, .5, .7, .8],
                       'estimator__l1_ratio': [.2, .5, .8]}
         model = GridSearchCV(pipeline, param_grid = param_grid, n_jobs = 4,
+                             verbose=2)
+        model.fit(X, s_Y.values)
+
+    ENLD
+    for symptom in symptoms:
+        print(symptom)
+        s_Y = Y[[x for x in cols if x[1] == symptom]]
+        pipeline = Pipeline([
+            ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
+            ('standard_scale', StandardScaler()),
+            ('estimator', ElasticNet()),
+        ])
+
+        model = pipeline
+        model.fit(X, s_Y.values)
+
+        for symptom in symptoms:
+        print(symptom)
+        s_Y = Y[[x for x in cols if x[1] == symptom]]
+        pipeline = Pipeline([
+            ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
+            ('standard_scale', MaxAbsScaler()),
+            ('estimator', DecisionTreeRegressor(max_depth=5)),
+        ])
+
+        param_grid = {'estimator__max_depth': [3, 5, 7],
+                      'estimator__max_features': ['auto', 'sqrt', 'log2']}
+        model = GridSearchCV(pipeline, param_grid = param_grid, n_jobs = 3,
                              verbose=2)
         model.fit(X, s_Y.values)
 

@@ -56,9 +56,13 @@ def convert_to_X(val, users, active_days, day_transform):
     format which as only one row per user in this function.
     """
     a = val.groupby(('user_id', 'category', 'symptom', day_transform)).count().reset_index()
-
-    a = a[['user_id', 'symptom', day_transform, 'cycle_id']]
-    a.columns = ['user_id', 'symptom', day_transform, 'cnt']
+    c_count = val.groupby('user_id').cycle_id.nunique().reset_index()
+    c_count.columns = ['user_id', 'cycle_count']
+    a = a.merge(c_count, on = 'user_id').reset_index()
+    a = a[['user_id', 'symptom', day_transform, 'cycle_id', 'cycle_count']]
+    a.columns = ['user_id', 'symptom', day_transform, 'cnt', 'cycle_count']
+    a['cnt'] = a['cnt'] / a['cycle_count']
+    a = a[['user_id', 'symptom', day_transform, 'cnt']]
 
     indexed_df = a.set_index(['user_id', day_transform, 'symptom'])
     for i in range(2):
@@ -80,13 +84,13 @@ def convert_to_X(val, users, active_days, day_transform):
     indexed_df = pd.merge(indexed_df, ad, on='user_id').reset_index()
 
     # Gianluca
-    df_users_adj = preprocess_users(users)
-    indexed_df = pd.merge(df_users_adj, indexed_df, how='left', on='user_id')
+    #df_users_adj = preprocess_users(users)
+    #indexed_df = pd.merge(df_users_adj, indexed_df, how='left', on='user_id')
     
     return indexed_df
 
 
-def process_level2(data: dict):
+def process_level2(data: dict, double_explode = False):
     """
     This function takes the raw data read from csv files
     in terms of a dictionary, and returns X and Y for
@@ -117,7 +121,7 @@ def process_level2(data: dict):
     v1 = pd.merge(df, min_cycle, on='user_id')
     vY = v1[v1.cycle_id == v1.min_c]
 
-    Y = convert_to_X(vY, users, active_days, 'inverse_proportionate')
+    Y = convert_to_X(vY, users, active_days, 'proportionate')
     symptoms = ['happy', 'pms', 'sad', 'sensitive_emotion', 'energized', 'exhausted',
                 'high_energy', 'low_energy', 'cramps', 'headache', 'ovulation_pain',
                 'tender_breasts', 'acne_skin', 'good_skin', 'oily_skin', 'dry_skin']
@@ -128,23 +132,23 @@ def process_level2(data: dict):
     Y = Y[cols]
 
     # X
-    """
-    vX = v1[v1.cycle_id != v1.min_c]
-    X = convert_to_X(vX, users, active_days, 'inverse_proportionate')
-    X_all = convert_to_X(v1, users, active_days, 'inverse_proportionate')
-    """
+    if not double_explode:
+        vX = v1[v1.cycle_id != v1.min_c]
+        X = convert_to_X(vX, users, active_days, 'proportionate')
+        X_all = convert_to_X(v1, users, active_days, 'proportionate')
+    else:
+        vX = v1[v1.cycle_id != v1.min_c]
+        Xip = convert_to_X(vX, users, active_days, 'inverse_proportionate')
+        Xip = Xip.set_index('user_id')
+        Xp = convert_to_X(vX, users, active_days, 'proportionate')
+        Xp = Xp.set_index('user_id')
+        X = pd.concat([Xip, Xp], axis=1).reset_index()
+        X_all_ip = convert_to_X(v1, users, active_days, 'inverse_proportionate')
+        X_all_ip = X_all_ip.set_index('user_id')
+        X_all_p = convert_to_X(v1, users, active_days, 'proportionate')
+        X_all_p = X_all_p.set_index('user_id')
+        X_all = pd.concat([X_all_ip, X_all_p], axis=1).reset_index()
 
-    vX = v1[v1.cycle_id != v1.min_c]
-    Xip = convert_to_X(vX, users, active_days, 'inverse_proportionate')
-    Xip = Xip.set_index('user_id')
-    Xp = convert_to_X(vX, users, active_days, 'proportionate')
-    Xp = Xp.set_index('user_id')
-    X = pd.concat([Xip, Xp], axis=1).reset_index()
-    X_all_ip = convert_to_X(v1, users, active_days, 'inverse_proportionate')
-    X_all_ip = X_all_ip.set_index('user_id')
-    X_all_p = convert_to_X(v1, users, active_days, 'proportionate')
-    X_all_p = X_all_p.set_index('user_id')
-    X_all = pd.concat([X_all_ip, X_all_p], axis=1).reset_index()
 
     assert X.shape[0] == Y.shape[0], "shape of X and Y does not agree"
     assert X.shape[0] == X_all.shape[0], "shape of X_all and X does not agree"

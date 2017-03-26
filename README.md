@@ -57,12 +57,15 @@ The model is in this case a `scikit-learn` pipeline:
     pipeline = Pipeline([
         ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
         ('standard_scale', StandardScaler()),
-        ('estimator', DecisionTreeRegressor(max_depth=5)),
+        ('estimator', Lasso()),
     ])
 
-    pipeline.fit(X, Y)
+    param_grid = {'estimator__alpha': [.1, .3, .5, .7, .8]}
+    model = GridSearchCV(pipeline, param_grid = param_grid, n_jobs = 4,
+                         verbose=2)
+    model.fit(X, Y)
 
-`Y` being the output for only one symptom. The actual code is found in [pipeline.py](src/pipeline.py) file.
+`Y` being the output for only one symptom. The actual code is found in [pipeline.py](src/pipeline.py) file. The `pipeline` can be changed easily to set the desired preprocessing and/or prediction model.
 
 ## Results
 We compared and submitted a few models in our evaluations. At the end, the best performing model was a `LASSO` and a grid search on its `alpha` parameter. Other evaluated models include:
@@ -82,7 +85,8 @@ An alternative approach is to train a general model for all the users, and then 
 
 There are also a few tasks that we could do on the preprocessing side of the code:
 - The code in this repository assumes `1` whenever a symptom is tracked, and `0` otherwise. Then we sum over cycles of the user to calculate the input. Instead of taking the sum, we could take the average or the median of those values and see if it improves the performance. The downside of what we do is that users with more recorded cycles have higher values in their feature vector solely because they've been on the app longer, and not necessarily because they've been more active.
+  - UPDATE: this did not improve the performance
 - At the moment we scale the whole cycle linearly into a 29 day cycle. Whilst it might make sense for some of the symptoms, other symptoms might show a different behavior. For instance, it might be better to keep the last 2 weeks of the cycle as it is, and scale the rest of it linearly into 15 days. There is some evidence that this is a better transformation for many symptoms. One idea is to transform all the symptoms using both explained approaches, and then for each symptom, test which transformation makes the population closer to each other. The transformation resulting in less variance among the population is probably a better fit.
-
-- standard scaler doesn't work for sparse data
+- The `StandardScaler` used in our code includes all the zeros in the estimated mean and variance before transformation, which in such a sparse data as we have in this task is wrong. As long as the prediction model does not assume having normally distributed input variables, this preprocessing step can be removed.
+  - UPDATE: this did not improve the performance
 - compare to all `0.01` or similar constant output performance

@@ -6,15 +6,30 @@ import pandas as pd
 
 
 class DummyModel:
+    def __init__(self, constant=0.01):
+        self.constant = constant
+
     def predict(self, X):
         res = list()
         for x in X:
-            p = np.zeros(29)
-            p[5] = 1
-            p[6] = 1
+            p = np.zeros(29) + self.constant
             res.append(p)
-        return res
+        return np.array(res)
 
+    def fit(self, X, Y):
+        return self
+
+    def score(self, X, Y):
+        y_pred = self.predict(X)
+        y_true = Y
+        return -np.sum(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
+    
+    def get_params(self, **args):
+        return {'constant': self.constant}
+
+    def set_params(self, constant, **args):
+        self.constant = constant
+        return self
 
 def dump_cycle(f, user, ps, symptom, cl):
     y = ps
