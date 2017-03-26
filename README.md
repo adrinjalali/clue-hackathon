@@ -90,4 +90,6 @@ There are also a few tasks that we could do on the preprocessing side of the cod
 - The `StandardScaler` used in our code includes all the zeros in the estimated mean and variance before transformation, which in such a sparse data as we have in this task is wrong. As long as the prediction model does not assume having normally distributed input variables, this preprocessing step can be removed.
   - UPDATE: this did not improve the performance
 - compare a constant small output to other models
-  - UPDATE: this was implemented, but got failed and never got debugged (competition over).
+  - UPDATE: this was implemented, but got failed and never got debugged (competition over). It is the `DummyModel` in (dump_results.py)[src/dump_results.py] file.
+
+A final remark: inside [clusters+access_probability.pdf](clusters+access_probability.pdf) in the last part we tried to recreate profiles of click of a specific symptom given the fact that the user accessed the app. Such analysis it is really valuable as it shows the real behaviour of the sympthoms over time, and it can become especially powerful whenever users are clustered in different groups.
