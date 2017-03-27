@@ -15,6 +15,8 @@ from matplotlib import pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from clustering.users_features import df_users_adj,df_users
+from src.pre_process import load_binary
+
 
 def getDummies(dfz, col, minCtn = 10):
     '''
@@ -31,14 +33,6 @@ def getDummies(dfz, col, minCtn = 10):
     
     return dummies, topColTypes
 
-train = pd.concat([df_users], axis=1) \
-                            .drop([ 'country', 'platform','first_havers','menopause', 'continent', \
-                                   'birthyear', 'weight', 'height','age_bracket'], axis = 1)
-
-                    
-df_active  = pd.read_csv("active_days.csv")
-df_cycles  = pd.read_csv("cycles.csv")
-df_cycles0 = pd.read_csv("cycles0.csv")
 
 def get_monthly_activity(user_df):
     '''calculate how an user was active on a specific month'''
@@ -47,13 +41,15 @@ def get_monthly_activity(user_df):
     monthly_activity = total_entries / total_cycles
     
     return monthly_activity
-  
+
+
 def last_month(user_df):
     '''send back the last month value of a user'''
     count_cycle = user_df['cycle_id'].value_counts()
     last_mon    = count_cycle.head(1).keys()[0]
 
     return last_mon
+
 
 def new_user(user_df):
     '''a new user is defined when last_mon<=2'''    
@@ -64,6 +60,7 @@ def new_user(user_df):
         
     return new_us
 
+
 def menstrual_activity(user_df):
     '''send back how active is a person around menstrual time'''
     total_cycle_days = (user_df['day_in_cycle'] <6).sum()
@@ -71,7 +68,6 @@ def menstrual_activity(user_df):
 
     return cycle_activity
 
-df_active = df_active.join(df_cycles.set_index(['user_id','cycle_id']), on = ['user_id','cycle_id'], how = 'right', lsuffix='_x')
 
 def create_info_users(df_active):
     unique_users = df_active.user_id.unique()
@@ -95,8 +91,17 @@ def create_info_users(df_active):
     
     return info_users
 
-info_users = create_info_users(df_active)
+train = pd.concat([df_users], axis=1) \
+                            .drop([ 'country', 'platform','first_havers','menopause', 'continent', \
+                                   'birthyear', 'weight', 'height','age_bracket'], axis = 1)
 
+
+data = load_binary()
+df_active  = data['active_days']
+df_cycles  = data['cycles']                   
+
+df_active = df_active.join(df_cycles.set_index(['user_id','cycle_id']), on = ['user_id','cycle_id'], how = 'right', lsuffix='_x')
+info_users = create_info_users(df_active)
 info_df = pd.DataFrame(info_users)
 
 users_data = pd.merge(train, info_df,
