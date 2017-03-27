@@ -14,12 +14,12 @@ from src.pre_process import process_explode
 
 
 def test_save_binary():
-    save_binary('../data')
+    save_binary('data', 'binary')
     print("binary file found: ", os.path.isfile('../binary/active_days.pkl'))
-    assert(os.path.isfile('../binary/active_days.pkl'))
+    assert(os.path.isfile('binary/active_days.pkl'))
 
 def test_load_binary():
-    data = load_binary()
+    data = load_binary('binary')
     users, cycles, active_days, tracking = data['users'], data['cycles'], data['active_days'], data['tracking']
     print(len(users), 'users loaded')
     assert(len(users)>3000)
