@@ -1,17 +1,11 @@
-from os.path import join
 import os
 import pandas as pd
-from scipy.interpolate import interp1d
-from scipy.signal import savgol_filter
-from pandas import DataFrame
-from tqdm import tqdm
 import numpy as np
 import csv
 
 
-def load_binary(binary_dir = 'binary'):
-    """
-    loads the binary data.
+def load_binary(binary_dir='binary'):
+    """Loads the binary data.
     """
     df_active_days = pd.read_pickle(os.path.join(binary_dir, 'active_days.pkl'))
     df_cycles = pd.read_pickle(os.path.join(binary_dir, 'cycles.pkl'))
@@ -26,101 +20,14 @@ def load_binary(binary_dir = 'binary'):
             'labels': df_labels}
 
 
-def process_level1(tracking, cycles):
-    """
-    Pivot table and put symptoms on columns to get a matrix.
-    Then convert the day_in_cycle into:
-    - proportionate value to the cycle
-    - distance from the end of the cycle
-    - distance from the end of the period
-    These values can be usefull later to map symptoms of
-    different cycles together. It might also help mapping
-    different cycles of different people together.
-    
-    The very helpful thing to map different cycles together (of the same id) 
-    is to order them with respect to the ovulation day; the ovulation day becomes 
-    then the origin time for predictions. Any symptom can appear some day before or after
-    the ovulation day (see comment).
-    
-    """
-    val = tracking[['user_id', 'cycle_id', 'day_in_cycle', 'date', 'symptom']]\
-          .pivot_table(index= ['user_id', 'cycle_id', 'day_in_cycle', 'date'],
-                       columns = ['symptom'], aggfunc=lambda x: 1).\
-                       reset_index()
-
-    val = sqldf("""select t1.*,
-                   c1.cycle_length, c1.expected_cycle_length, c1.period_length,
-                   t1.day_in_cycle / c1.cycle_length as proportionate,
-                   c1.cycle_length - t1.day_in_cycle as inverse,
-                   t1.day_in_cycle - c1.period_length as period_removed
-                   from val as t1 join cycles as c1 on t1.user_id = c1.user_id
-                   and t1.cycle_id = c1.cycle_id""",
-                {'val': val, 'cycles': cycles})
-    return val
-
-
-
-def process_explode(tracking, cycles):
-    """
-    Pivot table and put symptoms on columns to get a matrix.
-
-    Then explode missing dates
-
-    Then convert the day_in_cycle into:
-    - proportionate value to the cycle
-    - distance from the end of the cycle
-    - distance from the end of the period
-    These values can be usefull later to map symptoms of
-    different cycles together. It might also help mapping
-    different cycles of different people together.
-    """
-
-    tracking_pivot = tracking[['user_id', 'cycle_id', 'day_in_cycle', 'date', 'symptom']] \
-        .pivot_table(index=['user_id', 'cycle_id', 'day_in_cycle', 'date'],
-                     columns=['symptom'], aggfunc=lambda x: 1). \
-        reset_index()
-
-    tracking_pivot["date"] = pd.to_datetime(tracking_pivot["date"])
-    cycles["cycle_start"] = pd.to_datetime(cycles["cycle_start"])
-
-    tracking_pivot = tracking_pivot.sort_values(by=["user_id", "date"], ascending=[False, True])
-    tracking_pivot.reset_index(drop=True)
-
-    full_cycles = []
-
-    for i, cycle in tqdm(cycles.iterrows()):
-        cycle_start = cycle["cycle_start"]
-        cycle_length = cycle["cycle_length"]
-        cycle_end = cycle_start + pd.DateOffset(cycle_length - 1)
-        idx = pd.date_range(cycle_start, cycle_end, freq="D")
-        full_df = DataFrame(idx, columns=["date"])
-
-        full_df["user_id"] = cycle["user_id"]
-        full_df["cycle_id"] = cycle["cycle_id"]
-        full_df["period_length"] = cycle["period_length"]
-        full_df["cycle_length"] = cycle_length
-        full_df["expected_cycle_length"] = cycle["expected_cycle_length"]
-        full_df["day_in_cycle"] = range(1, int(cycle_length) + 1, 1)
-        full_df["proportionate"] = full_df["day_in_cycle"] / cycle_length
-        full_df["inverse"] = cycle_length - full_df["day_in_cycle"]
-        full_df["period_removed"] = full_df["day_in_cycle"] - cycle["period_length"]
-
-        full_cycles.append(full_df)
-
-    full_cycles = pd.concat(full_cycles)
-    full_tracking_pivot = pd.merge(full_cycles, tracking_pivot, how='left',
-                                   on=['user_id', 'cycle_id', "day_in_cycle", "date"])
-
-    return full_tracking_pivot
-
 def preprocess_users(users):
-    # preparing countries to continent mapping
-    reader = csv.reader(open('../data/countries_mapping.csv', 'r'))
+    # Preparing countries to continent mapping
+    reader = csv.reader(open('clustering/countries_mapping.csv', 'r'))
     d = {}
     for row in reader:
         d[row[1]] = row[0]
 
-    # preparing data
+    # Preparing data
     df_users = users.apply(lambda x: x.fillna(x.median()) if np.issubdtype(x.dtype, np.number) else x, axis=0)
     df_users['continent'] = df_users.country.map(d).fillna("Oceania")
     df_users.continent = df_users.continent.apply(lambda x: 'Asia' if x == 'South Korea' else x)
@@ -134,18 +41,28 @@ def preprocess_users(users):
     df_users['menopause'] = (((df_users.birthyear - df_users.birthyear.min())/(df_users.birthyear.max() - df_users.birthyear.min())) < 0.2) * 1
     df_users['bmi'] = df_users.weight / ((df_users.height/100)**2)
 
-    # preparing the dataset to cluster
+    # Preparing the dataset to cluster
     df_users_adj = pd.concat([df_users, pd.get_dummies(df_users.continent), pd.get_dummies(df_users.age_bracket)], axis=1) \
                     .drop(['Oceania', 'country', 'platform', 'continent', \
                             'birthyear', 'weight', 'height','age','age_bracket'], axis = 1)
 
     return df_users_adj
 
-def convert_to_X(val, users, active_days, day_transform):
-    a = val.groupby(('user_id', 'category', 'symptom', day_transform)).count().reset_index()
 
-    a = a[['user_id', 'symptom', day_transform, 'cycle_id']]
-    a.columns = ['user_id', 'symptom', day_transform, 'cnt']
+def convert_to_X(val, users, active_days, day_transform):
+    """
+    This function converts the data from row format,
+    into column format. The data is converted into the
+    format which as only one row per user in this function.
+    """
+    a = val.groupby(('user_id', 'category', 'symptom', day_transform)).count().reset_index()
+    c_count = val.groupby('user_id').cycle_id.nunique().reset_index()
+    c_count.columns = ['user_id', 'cycle_count']
+    a = a.merge(c_count, on = 'user_id').reset_index()
+    a = a[['user_id', 'symptom', day_transform, 'cycle_id', 'cycle_count']]
+    a.columns = ['user_id', 'symptom', day_transform, 'cnt', 'cycle_count']
+    a['cnt'] = a['cnt'] / a['cycle_count']
+    a = a[['user_id', 'symptom', day_transform, 'cnt']]
 
     indexed_df = a.set_index(['user_id', day_transform, 'symptom'])
     for i in range(2):
@@ -167,12 +84,19 @@ def convert_to_X(val, users, active_days, day_transform):
     indexed_df = pd.merge(indexed_df, ad, on='user_id').reset_index()
 
     # Gianluca
-    df_users_adj = preprocess_users(users)
-    indexed_df = pd.merge(df_users_adj, indexed_df, how='left', on='user_id')
+    #df_users_adj = preprocess_users(users)
+    #indexed_df = pd.merge(df_users_adj, indexed_df, how='left', on='user_id')
     
     return indexed_df
 
-def process_level2(data: dict):
+
+def process_level2(data: dict, double_explode = False):
+    """
+    This function takes the raw data read from csv files
+    in terms of a dictionary, and returns X and Y for
+    model training, and X_all for the final prediction.
+    """
+    
     min_cycle = pd.DataFrame(data['tracking'].groupby('user_id').cycle_id.min()).reset_index()
     min_cycle.columns = ['user_id', 'min_c']
 
@@ -195,9 +119,9 @@ def process_level2(data: dict):
     df['inverse_proportionate'] = df['inverse_proportionate'].astype(int)
 
     v1 = pd.merge(df, min_cycle, on='user_id')
-    vY = v1[v1.cycle_id==v1.min_c]
+    vY = v1[v1.cycle_id == v1.min_c]
 
-    Y = convert_to_X(vY, users, active_days, 'inverse_proportionate')
+    Y = convert_to_X(vY, users, active_days, 'proportionate')
     symptoms = ['happy', 'pms', 'sad', 'sensitive_emotion', 'energized', 'exhausted',
                 'high_energy', 'low_energy', 'cramps', 'headache', 'ovulation_pain',
                 'tender_breasts', 'acne_skin', 'good_skin', 'oily_skin', 'dry_skin']
@@ -208,23 +132,22 @@ def process_level2(data: dict):
     Y = Y[cols]
 
     # X
-    """
-    vX = v1[v1.cycle_id != v1.min_c]
-    X = convert_to_X(vX, users, active_days, 'inverse_proportionate')
-    X_all = convert_to_X(v1, users, active_days, 'inverse_proportionate')
-    """
-
-    vX = v1[v1.cycle_id != v1.min_c]
-    Xip = convert_to_X(vX, users, active_days, 'inverse_proportionate')
-    Xip = Xip.set_index('user_id')
-    Xp = convert_to_X(vX, users, active_days, 'proportionate')
-    Xp = Xp.set_index('user_id')
-    X = pd.concat([Xip, Xp], axis=1).reset_index()
-    X_all_ip = convert_to_X(v1, users, active_days, 'inverse_proportionate')
-    X_all_ip = X_all_ip.set_index('user_id')
-    X_all_p = convert_to_X(v1, users, active_days, 'proportionate')
-    X_all_p = X_all_p.set_index('user_id')
-    X_all = pd.concat([X_all_ip, X_all_p], axis=1).reset_index()
+    if not double_explode:
+        vX = v1[v1.cycle_id != v1.min_c]
+        X = convert_to_X(vX, users, active_days, 'proportionate')
+        X_all = convert_to_X(v1, users, active_days, 'proportionate')
+    else:
+        vX = v1[v1.cycle_id != v1.min_c]
+        Xip = convert_to_X(vX, users, active_days, 'inverse_proportionate')
+        Xip = Xip.set_index('user_id')
+        Xp = convert_to_X(vX, users, active_days, 'proportionate')
+        Xp = Xp.set_index('user_id')
+        X = pd.concat([Xip, Xp], axis=1).reset_index()
+        X_all_ip = convert_to_X(v1, users, active_days, 'inverse_proportionate')
+        X_all_ip = X_all_ip.set_index('user_id')
+        X_all_p = convert_to_X(v1, users, active_days, 'proportionate')
+        X_all_p = X_all_p.set_index('user_id')
+        X_all = pd.concat([X_all_ip, X_all_p], axis=1).reset_index()
 
 
     assert X.shape[0] == Y.shape[0], "shape of X and Y does not agree"
@@ -233,4 +156,3 @@ def process_level2(data: dict):
     return {'X': X,
             'Y': Y,
             'X_all': X_all}
-    

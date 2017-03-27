@@ -11,15 +11,13 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVR
 import pandas as pd
 from os.path import join
-from src.dump_results import dump
+from src.dump_results import dump, DummyModel
 from sklearn.tree import DecisionTreeRegressor
 from src.pre_process import process_level2, load_binary
 
 
 def run():
     data = load_binary()
-
-    # (Opt: user clustering)
 
     # Extract features
     user_feat_matrix = process_level2(data)  # X
@@ -42,25 +40,51 @@ def run():
     
     for symptom in symptoms:
         print(symptom)
-        s_Y = Y[[x for x in cols if x[1] == symptom]]
+        
         pipeline = Pipeline([
             ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
-            ('standard_scale', StandardScaler()),
-            ('estimator', DecisionTreeRegressor(max_depth=5)),
+            #('standard_scale', StandardScaler()),
+            ('estimator', Lasso()),
         ])
 
-        pipeline.fit(X, s_Y.values)
+        param_grid = {'estimator__alpha': [.1, .3, .5, .7, .8]}
+        model = GridSearchCV(pipeline, param_grid = param_grid, n_jobs = 4,
+                             verbose=2)
+        model.fit(X, s_Y.values)
 
         print("dumping...")
         data_dir = 'data'
         cycles0 = pd.read_csv(join(data_dir, 'cycles0.csv'))
         c_length = {k:v for k,v in zip(cycles0.user_id.values, cycles0.expected_cycle_length)}
-        dump(symptom, pipeline, X_all, c_length, data['users'].user_id)
-    
+        dump(symptom, model, X_all, c_length, data['users'].user_id)
+
+
 if __name__ == '__main__':
     run()
 
     """
+    const
+        s_Y = Y[[x for x in cols if x[1] == symptom]]
+        pipeline = DummyModel()
+        param_grid = {'constant': [math.pow(10, x) for x in range(-10, -1)]}
+        model = GridSearchCV(pipeline, param_grid = param_grid,
+                             verbose=2)
+        model.fit(X, s_Y.values.astype(int))
+        print(model.best_params_)
+
+    LASSOGS
+        pipeline = Pipeline([
+            ('remove_low_variance_features', VarianceThreshold(threshold=0.0)),
+            #('standard_scale', StandardScaler()),
+            ('estimator', Lasso()),
+        ])
+
+        param_grid = {'estimator__alpha': [.1, .3, .5, .7, .8]}
+        model = GridSearchCV(pipeline, param_grid = param_grid, n_jobs = 4,
+                             verbose=2)
+        model.fit(X, s_Y.values)
+
+
     symptoms=['happy']
     for symptom in symptoms:
         print(symptom)
