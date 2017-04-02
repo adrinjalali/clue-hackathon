@@ -32,6 +32,13 @@ class DummyModel:
         return self
 
 def dump_cycle(f, user, ps, symptom, cl):
+    """ Takes predicted values, dumps appropriate results accordingly.
+    :param f: output file
+    :param user: user id
+    :param ps: predictions for this user
+    :param symptom: symptom for which these predictions are for
+    :param cl: expected cycle length
+    """
     y = ps
     y[np.isnan(y)] = 0
     x = np.array(list(range(len(ps))))
